@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Loader2, Link as LinkIcon, ClipboardList, Sparkles, Check, Copy, ListTree } from "lucide-react";
 
-/* ---------------- Winspro Portfolio ---------------- */
+/* ---------------- Winspro Portfolio (unchanged) ---------------- */
 const PORTFOLIO = [
   { id: "rice-syrup", name: "Rice Syrup", category: "Natural Sweeteners", aliases: ["brown rice syrup","rice malt syrup","glucose syrup (rice)","liquid sweetener"], industries: ["bakery","confectionery","beverages","snacks","infant food","sauces"] },
   { id: "maltodextrin", name: "Maltodextrin", category: "Functional Ingredients", aliases: ["carrier solid","spray-drying carrier","DE 10","DE 18"], industries: ["beverages","flavours","nutrition","pharma","bakery","confectionery"] },
@@ -27,7 +27,38 @@ const PORTFOLIO = [
   { id: "fruit-veg-powders", name: "Fruit & Vegetable Powders", category: "Agri-Based Ingredients", aliases: ["spray-dried powders","dehydrated powders","mango powder","spinach powder"], industries: ["beverages","bakery","snacks","nutrition"] }
 ];
 
-/* ---------------- Industry triggers + inference ---------------- */
+/* ---------------- India dominance dataset (EDITABLE) ----------------
+   Goal: show only items where India is a dominant exporter globally AND to EU & US.
+   You can tune these flags based on your market intel.
+-------------------------------------------------------------------- */
+const INDIA_DOMINANCE = {
+  // Strong India leadership
+  "guar-gum":           { global: true, eu: true, us: true, note: "India is a leading global source of guar gum." },
+  "psyllium-husk":      { global: true, eu: true, us: true, note: "India supplies the vast majority of psyllium." },
+  "curcumin":           { global: true, eu: true, us: true, note: "India dominates turmeric/curcumin exports." },
+  "ashwagandha":        { global: true, eu: true, us: true, note: "Flagship Indian botanical with strong demand." },
+  "moringa":            { global: true, eu: true, us: true, note: "India is a primary origin for moringa." },
+  "amla":               { global: true, eu: true, us: true, note: "Core Ayurveda ingredient; India-led supply." },
+  "neem":               { global: true, eu: true, us: true, note: "India-origin neem extracts widely traded." },
+  "tulsi":              { global: true, eu: true, us: true, note: "Holy basil (tulsi) is India-centric." },
+  "capsaicin":          { global: true, eu: true, us: true, note: "Chilli extracts from India have strong export flow." },
+  "veg-fats":           { global: true, eu: true, us: true, note: "Rice bran oil/non-GMO veg oils: strong India supply." },
+  "protein-meals":      { global: true, eu: true, us: true, note: "Rice/soy meals/gluten: competitive India exports." },
+
+  // Competitive but not dominant (set to false so they’re excluded when filter is ON)
+  "rice-syrup":         { global: false, eu: false, us: false },
+  "maltodextrin":       { global: false, eu: false, us: false },
+  "tapioca-starch":     { global: false, eu: false, us: false },
+  "pea-protein":        { global: false, eu: false, us: false },
+  "soy-protein":        { global: false, eu: false, us: false },
+  "prebiotics":         { global: false, eu: false, us: false },
+  "fruit-veg-powders":  { global: false, eu: false, us: false },
+  "ginger":             { global: false, eu: false, us: false }, // strong India production, but exports dominated by others in many categories
+  "liquorice":          { global: false, eu: false, us: false },
+  "rice-protein-70":    { global: false, eu: false, us: false },
+};
+
+/* ---------------- Industry triggers & finished-product inference ---------------- */
 const INDUSTRY_TRIGGERS = {
   "pet food": ["pet food","dog food","cat food","animal nutrition","feed","kibble"],
   "feed": ["animal feed","premix","feed mill","feed additive"],
@@ -45,16 +76,16 @@ const INDUSTRY_TRIGGERS = {
 };
 
 const FINISHED_PRODUCT_INFER = [
-  { cues: ["protein bar","sports nutrition","meal replacement","vegan protein"], suggest: ["rice-protein-70","pea-protein","maltodextrin"], note: "High-protein formats benefit from plant proteins and carriers." },
-  { cues: ["gluten-free","celiac","free-from"], suggest: ["rice-protein-70","tapioca-starch","guar-gum"], note: "Gluten-free bakery needs structure and binding." },
-  { cues: ["ice cream","frozen dessert","dairy alternative"], suggest: ["guar-gum","maltodextrin","rice-syrup"], note: "Stabilizers and bulking agents improve texture." },
-  { cues: ["sauce","ketchup","dressing","gravy"], suggest: ["tapioca-starch","guar-gum","rice-syrup"], note: "Viscosity and body from starches/gums; sweetness balancing from rice syrup." },
-  { cues: ["chocolate","confectionery","candy"], suggest: ["rice-syrup","maltodextrin","fruit-veg-powders"], note: "Sweetening and carriers for flavours and inclusions." },
-  { cues: ["pet food","kibble","animal nutrition"], suggest: ["rice-protein-70","psyllium-husk","protein-meals","capsaicin","liquorice"], note: "Protein, fibre, and phytogenics for palatability/gut health." },
-  { cues: ["flavour","flavor","fragrance","aroma"], suggest: ["maltodextrin","rice-syrup","herbal extracts"], note: "Carriers and natural actives for F&F applications." }
+  { cues: ["protein bar","sports nutrition","meal replacement","vegan protein"], suggest: ["rice-protein-70","pea-protein","maltodextrin"], note: "High-protein formats need plant proteins + carriers." },
+  { cues: ["gluten-free","celiac","free-from"], suggest: ["rice-protein-70","tapioca-starch","guar-gum"], note: "Gluten-free bakery needs structure/binding." },
+  { cues: ["ice cream","frozen dessert","dairy alternative"], suggest: ["guar-gum","maltodextrin","rice-syrup"], note: "Stabilizers/bulking improve texture." },
+  { cues: ["sauce","ketchup","dressing","gravy"], suggest: ["tapioca-starch","guar-gum","rice-syrup"], note: "Viscosity + sweetness balancing." },
+  { cues: ["chocolate","confectionery","candy"], suggest: ["rice-syrup","maltodextrin","fruit-veg-powders"], note: "Sweetening + carriers for inclusions." },
+  { cues: ["pet food","kibble","animal nutrition"], suggest: ["rice-protein-70","psyllium-husk","protein-meals","capsaicin","liquorice"], note: "Protein, fibre, phytogenics." },
+  { cues: ["flavour","flavor","fragrance","aroma"], suggest: ["maltodextrin","rice-syrup","herbal extracts"], note: "Carriers + actives for F&F." }
 ];
 
-/* ---------------- Scoring A/B/C (heuristics) ---------------- */
+/* ---------------- A/B/C scores (heuristics you already had) ---------------- */
 const A_INDIA = {
   "guar-gum": 9, "psyllium-husk": 10, "rice-protein-70": 7, "rice-syrup": 7,
   "maltodextrin": 7, "tapioca-starch": 6, "pea-protein": 5, "soy-protein": 6,
@@ -72,9 +103,20 @@ const B_EU = {
   "veg-fats": 9, "fruit-veg-powders": 8
 };
 const C_TYPE = { default: "Plant-based" };
+function getABC(id) { return { A: A_INDIA[id] ?? 6, B: B_EU[id] ?? 6, C: C_TYPE[id] ?? C_TYPE.default }; }
 
-function getABC(id) {
-  return { A: A_INDIA[id] ?? 6, B: B_EU[id] ?? 6, C: C_TYPE[id] ?? C_TYPE.default };
+/* ---------------- Trader vs Manufacturer detection ---------------- */
+const TRADER_CUES = ["trader","trading","distributor","distributer","wholesale","wholesaler","importer","exporter","supplier","merchant","reseller","stockist","sourcing"];
+const MAKER_CUES  = ["manufactur","factory","plant","we make","our brand","brand owner","production","oem","odm","our facility","r&d","lab","formulation"];
+
+function detectRole(text) {
+  const t = text.toLowerCase();
+  const trHits = TRADER_CUES.filter(w => t.includes(w)).length;
+  const mkHits = MAKER_CUES.filter(w => t.includes(w)).length;
+  if (trHits && mkHits) return { role: "Mixed", trHits, mkHits };
+  if (trHits) return { role: "Trader", trHits, mkHits };
+  if (mkHits)  return { role: "Manufacturer", trHits, mkHits };
+  return { role: "Unknown", trHits, mkHits };
 }
 
 /* ---------------- Utilities ---------------- */
@@ -93,9 +135,7 @@ function guessRegionFromUrl(url) {
 /* ---------------- Analyzer ---------------- */
 function analyze(textRaw) {
   const text = normalize(textRaw);
-  const industriesFound = Object.entries(INDUSTRY_TRIGGERS)
-    .filter(([_, cues]) => containsAny(text, cues))
-    .map(([k]) => k);
+  const industriesFound = Object.entries(INDUSTRY_TRIGGERS).filter(([_, cues]) => containsAny(text, cues)).map(([k]) => k);
 
   const scores = {}; const reasons = {};
   PORTFOLIO.forEach(p => {
@@ -113,22 +153,33 @@ function analyze(textRaw) {
     }
   });
 
+  // Role detection influences scoring
+  const roleInfo = detectRole(text);
+  if (roleInfo.role === "Trader" || roleInfo.role === "Mixed") {
+    // Boost trader-friendly India-led exports: powders & botanicals, guar/psyllium, oil, protein meals
+    const boostIds = ["guar-gum","psyllium-husk","curcumin","ashwagandha","moringa","amla","neem","tulsi","capsaicin","veg-fats","protein-meals"];
+    boostIds.forEach(id => { if (scores[id] !== undefined) scores[id] += 2; });
+  }
+
   const ranked = PORTFOLIO
     .map(p => ({ item: p, score: scores[p.id] || 0, reasons: Array.from(new Set(reasons[p.id])) }))
     .filter(r => r.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  return { industriesFound, ranked };
+  return { industriesFound, ranked, roleInfo };
 }
 
 /* ---------------- Outreach generator ---------------- */
-function generateOutreach({ region, company, ranked }) {
+function generateOutreach({ region, company, ranked, roleInfo }) {
   const top = ranked.slice(0, 6).map(r => r.item.name);
   const list = top.join(", ");
+  const traderLine = (roleInfo?.role === "Trader" || roleInfo?.role === "Mixed")
+    ? "If you’re importing for resale, we can supply India-dominant SKUs with consistent specs."
+    : "";
   if (region === "US") {
-    return `Thanks for connecting. As ${company} scales in your category, we supply India-origin ingredients like ${list}. If this aligns with your current needs, happy to share specs and pricing via email.`;
+    return `Thanks for connecting. For ${company}, we supply India-dominant ingredients (${list}) with strong export flow to EU & US. ${traderLine} Happy to share specs and pricing.`;
   }
-  return `Thank you for connecting. For ${company}, we can supply India-origin ingredients such as ${list}. If this aligns with your current needs, I’d be glad to share specifications and pricing by email.`;
+  return `Thank you for connecting. For ${company}, we can supply India-dominant ingredients (${list}) with strong export flow to EU & US. ${traderLine} I’d be glad to share specifications and pricing.`;
 }
 
 /* ---------------- Component ---------------- */
@@ -139,8 +190,12 @@ export default function Home() {
   const [fetching, setFetching] = useState(false);
   const [result, setResult] = useState(null);
   const [copyOk, setCopyOk] = useState(false);
-  const [maxPages, setMaxPages] = useState(8);
+  const [maxPages, setMaxPages] = useState(10);
   const [pagesList, setPagesList] = useState([]);
+
+  // New toggles
+  const [indiaOnly, setIndiaOnly] = useState(true);        // require India-dominant
+  const [strictEUUS, setStrictEUUS] = useState(true);      // require both EU & US (not just one)
 
   const region = useMemo(() => guessRegionFromUrl(url), [url]);
 
@@ -160,7 +215,7 @@ export default function Home() {
       }
     } catch (e) {
       console.warn("Server crawl failed.", e);
-      alert("Server crawl failed. Copy-paste page text into the box and Analyze.");
+      alert("Server crawl failed. Copy-paste page text and Analyze.");
     } finally {
       setFetching(false);
     }
@@ -168,42 +223,38 @@ export default function Home() {
 
   function runAnalysis() {
     const text = siteText || "";
-    if (!text.trim()) {
-      alert("Paste some website text first (or click Fetch to crawl).");
-      return;
-    }
+    if (!text.trim()) { alert("Paste some website text first (or click Fetch to crawl)."); return; }
     const out = analyze(text);
     setResult(out);
   }
 
-  const outreach = useMemo(() => {
-    if (!result || result.ranked.length === 0) return "";
-    return generateOutreach({ region, company: company || "your company", ranked: result.ranked });
-  }, [result, region, company]);
+  // Filter for India dominance
+  const filtered = useMemo(() => {
+    if (!result) return null;
+    const check = (id) => {
+      const d = INDIA_DOMINANCE[id];
+      if (!d) return false;
+      if (!d.global) return false;
+      if (strictEUUS) return !!(d.eu && d.us);
+      return !!(d.eu || d.us);
+    };
+    const withABC = result.ranked.map(r => ({ ...r, ...getABC(r.item.id), dominance: INDIA_DOMINANCE[r.item.id] }));
+    const kept = indiaOnly ? withABC.filter(r => check(r.item.id)) : withABC;
+    const removed = indiaOnly ? withABC.filter(r => !check(r.item.id)) : [];
+    return { kept, removed };
+  }, [result, indiaOnly, strictEUUS]);
 
-  const highProb = useMemo(() => {
-    if (!result) return [];
-    const enriched = result.ranked.map(r => {
-      const { A, B, C } = getABC(r.item.id);
-      return { ...r, A, B, C };
-    });
-    enriched.sort((x, y) => {
-      const cx = x.C === "Plant-based" ? 1 : (x.C === "Natural mineral" ? 0 : -1);
-      const cy = y.C === "Plant-based" ? 1 : (y.C === "Natural mineral" ? 0 : -1);
-      if (cy !== cx) return cy - cx;
-      if (y.A !== x.A) return y.A - x.A;
-      if (y.B !== x.B) return y.B - x.B;
-      return y.score - x.score;
-    });
-    return enriched.slice(0, 10);
-  }, [result]);
+  const outreach = useMemo(() => {
+    if (!filtered || filtered.kept.length === 0) return "";
+    return generateOutreach({ region, company: company || "your company", ranked: filtered.kept, roleInfo: result?.roleInfo });
+  }, [filtered, region, company, result]);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-white to-slate-50 p-6">
       <div className="max-w-6xl mx-auto grid gap-6">
         <header className="flex items-center justify-between">
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Winspro Buyer-Fit Finder</h1>
-          <div className="text-sm text-slate-500">MVP · URL/Text Analyzer + Pitch Generator</div>
+          <div className="text-sm text-slate-500">India-Dominant Filter · Trader Detection</div>
         </header>
 
         <div className="shadow-sm rounded-2xl bg-white border">
@@ -222,84 +273,87 @@ export default function Home() {
                     Fetch
                   </button>
                 </div>
-                <div className="text-xs text-slate-500">Fetch now crawls multiple same-site pages (products/categories/applications) server-side to avoid CORS.</div>
+                <div className="text-xs text-slate-500">Server-side crawl follows internal product/category/application links (same site) up to Max pages.</div>
                 <div className="flex items-center gap-2 text-sm">
                   <ListTree className="w-4 h-4"/><span>Max pages:</span>
-                  <input type="number" min={3} max={20} value={maxPages} onChange={e => setMaxPages(parseInt(e.target.value || "8", 10))} className="border rounded-md p-1 w-16" />
+                  <input type="number" min={3} max={20} value={maxPages} onChange={e => setMaxPages(parseInt(e.target.value || "10", 10))} className="border rounded-md p-1 w-16" />
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Website Text (auto-filled by Fetch; you can also paste)</label>
-              <textarea rows={8} className="border rounded-md p-2" placeholder="Merged text from crawled pages will appear here…" value={siteText} onChange={e => setSiteText(e.target.value)} />
-              {!!pagesList.length && (
-                <div className="text-xs text-slate-500">Crawled {pagesList.length} pages. First few: {pagesList.slice(0, 5).join("  ·  ")}</div>
-              )}
+            <div className="grid md:grid-cols-3 gap-3">
+              <div className="col-span-2 grid gap-2">
+                <label className="text-sm font-medium">Website Text (auto-filled by Fetch; you can also paste)</label>
+                <textarea rows={8} className="border rounded-md p-2" placeholder="Merged text from crawled pages will appear here…" value={siteText} onChange={e => setSiteText(e.target.value)} />
+                {!!pagesList.length && (
+                  <div className="text-xs text-slate-500">Crawled {pagesList.length} pages. First few: {pagesList.slice(0, 5).join("  ·  ")}</div>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Filters</label>
+                <label className="text-sm flex items-center gap-2">
+                  <input type="checkbox" checked={indiaOnly} onChange={e => setIndiaOnly(e.target.checked)} />
+                  Only show India-dominant (Global + EU + US)
+                </label>
+                <label className="text-sm flex items-center gap-2 ml-6">
+                  <input type="checkbox" checked={strictEUUS} onChange={e => setStrictEUUS(e.target.checked)} />
+                  Require BOTH EU & US (untick = EU OR US)
+                </label>
+                {result?.roleInfo && (
+                  <div className="text-xs text-slate-600 mt-2">
+                    Detected role: <b>{result.roleInfo.role}</b> (signals: trader {result.roleInfo.trHits}, maker {result.roleInfo.mkHits})
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
               <button onClick={runAnalysis} className="px-3 py-2 border rounded-md bg-emerald-600 text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4"/>Analyze
               </button>
-              <span className="text-xs text-slate-500">Region guess: <span className="font-medium">{region}</span> (influences outreach tone)</span>
+              <span className="text-xs text-slate-500">Region guess: <span className="font-medium">{region}</span> (affects outreach tone)</span>
             </div>
           </div>
         </div>
 
-        {result && (
+        {filtered && (
           <div className="grid md:grid-cols-5 gap-6">
-            {/* Left: Suggested products with reasons + A/B/C */}
+            {/* Kept (meets India-dominant rule) */}
             <div className="md:col-span-3 shadow-sm rounded-2xl bg-white border">
               <div className="p-4 md:p-6 grid gap-3">
-                <h2 className="text-lg font-semibold">Suggested Products to Pitch</h2>
-                <div className="text-sm text-slate-600">Ranked by relevance. Includes A/B/C scores inline.</div>
+                <h2 className="text-lg font-semibold">India-Dominant Ingredients to Pitch</h2>
+                <div className="text-sm text-slate-600">Must be India-dominant globally and {strictEUUS ? "to EU **and** US" : "to EU or US"}.</div>
                 <div className="grid gap-3">
-                  {result.ranked.map((r, idx) => {
-                    const { A, B, C } = getABC(r.item.id);
-                    return (
-                      <div key={r.item.id} className="border rounded-xl p-3 hover:shadow-sm transition">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div className="font-medium">{idx + 1}. {r.item.name} <span className="text-slate-400 text-xs">· {r.item.category}</span></div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="px-2 py-1 rounded-full bg-slate-100">Relevance {r.score}</span>
-                            <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">A {A}</span>
-                            <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-700">B {B}</span>
-                            <span className="px-2 py-1 rounded-full bg-violet-50 text-violet-700">C {C}</span>
-                          </div>
+                  {filtered.kept.length === 0 && <div className="text-sm text-slate-500">No items passed the India-dominant filter. Try unticking “Require BOTH EU & US” or turning off the filter to see all matches.</div>}
+                  {filtered.kept.map((r, idx) => (
+                    <div key={r.item.id} className="border rounded-xl p-3 hover:shadow-sm transition">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="font-medium">{idx + 1}. {r.item.name} <span className="text-slate-400 text-xs">· {r.item.category}</span></div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="px-2 py-1 rounded-full bg-slate-100">Relevance {r.score}</span>
+                          <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">A {r.A}</span>
+                          <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-700">B {r.B}</span>
+                          <span className="px-2 py-1 rounded-full bg-violet-50 text-violet-700">C {r.C}</span>
                         </div>
-                        {r.reasons.length > 0 && (
-                          <ul className="list-disc pl-5 mt-2 text-sm text-slate-700 space-y-1">
-                            {r.reasons.map((reason, i) => (<li key={i}>{reason}</li>))}
-                          </ul>
-                        )}
                       </div>
-                    );
-                  })}
-                  {result.ranked.length === 0 && (
-                    <div className="text-sm text-slate-500">No strong matches yet. Try increasing “Max pages” and Fetch again.</div>
-                  )}
+                      {r.dominance?.note && <div className="text-xs text-slate-600 mt-1">Export note: {r.dominance.note}</div>}
+                      {r.reasons?.length > 0 && (
+                        <ul className="list-disc pl-5 mt-2 text-sm text-slate-700 space-y-1">
+                          {r.reasons.map((reason, i) => (<li key={i}>{reason}</li>))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Right: Industries + Outreach */}
+            {/* Outreach + Role */}
             <div className="grid md:col-span-2 gap-6">
               <div className="shadow-sm rounded-2xl bg-white border">
                 <div className="p-4 md:p-6 grid gap-3">
-                  <h3 className="text-lg font-semibold">Detected Industries</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {(result.industriesFound.length ? result.industriesFound : ["—"]).map(ind => (
-                      <span key={ind} className="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">{ind}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="shadow-sm rounded-2xl bg-white border">
-                <div className="p-4 md:p-6 grid gap-3">
-                  <h3 className="text-lg font-semibold">Outreach Draft (50–60 words)</h3>
-                  <textarea rows={6} className="border rounded-md p-2" value={outreach} onChange={()=>{}} />
+                  <h3 className="text-lg font-semibold">Outreach Draft (mentions India dominance)</h3>
+                  <textarea rows={8} className="border rounded-md p-2" value={outreach} onChange={()=>{}} />
                   <div className="flex items-center gap-2">
                     <button className="px-3 py-2 border rounded-md bg-slate-100 flex items-center gap-2" onClick={async ()=>{
                       await navigator.clipboard.writeText(outreach);
@@ -309,28 +363,22 @@ export default function Home() {
                       {copyOk ? <Check className="w-4 h-4"/> : <Copy className="w-4 h-4"/>}
                       Copy
                     </button>
-                    <div className="text-xs text-slate-500">Tone adapts to {region}. Edit as needed.</div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* High-probability list */}
-        {highProb.length > 0 && (
-          <div className="shadow-sm rounded-2xl bg-white border">
-            <div className="p-4 md:p-6 grid gap-3">
-              <h3 className="text-lg font-semibold">High-probability SKUs to pitch from India</h3>
-              <div className="text-sm text-slate-600">Ordering: Plant-based → higher India export worthiness (A) → EU usage breadth (B) → relevance.</div>
-              <ol className="list-decimal pl-5 space-y-1 text-sm">
-                {highProb.map((r, i) => (
-                  <li key={r.item.id}>
-                    <span className="font-medium">{r.item.name}</span> — A {r.A}/10 · B {r.B}/10 · C {r.C} · Relevance {r.score}
-                  </li>
-                ))}
-              </ol>
-              <div className="text-xs text-slate-500">Scores are heuristic for quick triage; confirm specs, regulatory status, and customer fit before quoting.</div>
+              {/* Excluded list for transparency */}
+              {indiaOnly && filtered.removed.length > 0 && (
+                <div className="shadow-sm rounded-2xl bg-white border">
+                  <div className="p-4 md:p-6 grid gap-3">
+                    <h3 className="text-lg font-semibold">Excluded (not India-dominant)</h3>
+                    <div className="text-xs text-slate-600">These matched the website but were filtered out by the India-dominant rule.</div>
+                    <ul className="list-disc pl-5 text-sm space-y-1">
+                      {filtered.removed.map(r => <li key={r.item.id}>{r.item.name}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
