@@ -57,6 +57,71 @@ const INDIA_DOMINANCE = {
   "liquorice":          { global: false, eu: false, us: false },
   "rice-protein-70":    { global: false, eu: false, us: false },
 };
+/* ---------- “Why from India” + “Use in product” helpers ---------- */
+// Compact sourcing notes per SKU (edit anytime)
+const INDIA_ADVANTAGE = {
+  "guar-gum": "India is the leading origin for guar seed & milling, with mature export processing and competitive pricing.",
+  "psyllium-husk": "India supplies the vast majority of psyllium globally with standardized grades and steady container flows.",
+  "curcumin": "Turmeric cultivation & extraction are India-centric; Indian processors dominate curcumin supply capacity.",
+  "ashwagandha": "Core Ayurveda crop with India-led cultivation and branded extract capabilities.",
+  "moringa": "Large farm base and dehydration capacity in India; consistent leaf powder/export.",
+  "amla": "India is the natural origin with established powder/extract supply chains.",
+  "neem": "India-led sourcing and extraction know-how for neem leaves and kernels.",
+  "tulsi": "Holy basil is India-origin with reliable farming and processing clusters.",
+  "capsaicin": "Strong Indian chilli crop + oleoresin extraction ecosystem.",
+  "veg-fats": "India has competitive non-GMO vegetable oils (e.g., rice bran oil) and refining capacity.",
+  "protein-meals": "India exports rice/soy meals & DDGS/gluten at scale with attractive values.",
+
+  // Optional notes for non-dominant items if you ever show them
+  "rice-syrup": "Competitive alt-sweetener supply from Asia; India is growing but not dominant.",
+  "maltodextrin": "Large Asian capacity; India is competitive for certain specs/lots.",
+  "tapioca-starch": "Primary dominance is in SE Asia; India can supply limited volumes.",
+  "pea-protein": "Dominance mainly in EU/NA/CN; India is emerging.",
+  "soy-protein": "Major processors outside India; India supplies related meals.",
+  "prebiotics": "EU/NA/CN dominate inulin/FOS; India capacity limited.",
+  "fruit-veg-powders": "Dehydration widely available; India strong on some fruits/veg but not dominant.",
+  "ginger": "India is a key grower, but processing/export dominance varies by grade.",
+  "liquorice": "Raw root originates outside India; some Indian processing exists.",
+  "rice-protein-70": "Manufacturing exists; not a dominant India export compared to others."
+};
+
+// Simple application hints per industry to keep it brief
+const USE_NOTES = {
+  "pet food": "binding, texture and palatability; fibre for gut health; plant proteins for protein claims.",
+  "feed": "phytogenic actives and proteins for performance and gut support.",
+  "bakery": "structure, moisture control, and gluten-free binding; sweetness where needed.",
+  "confectionery": "sweetening, bulking and flavour carriers.",
+  "beverages": "flavour carriers, natural actives, and light mouthfeel/viscosity.",
+  "dairy": "stabilization, body and freeze-thaw performance.",
+  "nutrition": "actives for claims (botanicals), plant proteins, and carriers for blends.",
+  "pharma": "excipients/stabilizers and standardized botanical actives.",
+  "flavours": "spray-dry carriers and natural extracts.",
+  "cosmetics": "botanical actives and natural functional agents.",
+  "sauces": "viscosity/shine, suspension and sweetness balancing.",
+  "snacks": "binding/expansion control and seasoning carriers.",
+  "alt meats": "plant proteins and binders for texture."
+};
+
+// Build a compact 2-line rationale for each suggestion
+function buildWhy({ id, company, industriesFound = [], dominance, roleInfo }) {
+  const whyIndia = dominance?.global
+    ? (INDIA_ADVANTAGE[id] || "India offers reliable origin, scalable capacity and competitive ocean freight.")
+    : "India can be a competitive secondary origin depending on spec and lot size.";
+
+  // Choose the best industry sentence we detected
+  const topInd = industriesFound[0];
+  const useLine = topInd ? USE_NOTES[topInd] : "functional performance in your formulas (binding, stability, or actives).";
+
+  // If they look like a trader/reseller, add a sourcing hint
+  const traderHint = (roleInfo?.role === "Trader" || roleInfo?.role === "Mixed")
+    ? " Suitable for import & resale due to stable specs and shelf-stable logistics."
+    : "";
+
+  return {
+    whyIndia,
+    use: `Use in ${company || "your products"}: ${useLine}${traderHint}`
+  };
+}
 
 /* ---------------- Industry triggers & finished-product inference ---------------- */
 const INDUSTRY_TRIGGERS = {
