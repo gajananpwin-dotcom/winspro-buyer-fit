@@ -1,6 +1,6 @@
 // pages/api/crawl.js
-// Simple same-origin crawler: fetches the start URL, follows internal links that look like
-// product/category/application pages, merges cleaned text, and returns { text, pages }.
+// Same-origin crawler: fetch start URL, follow internal product/category/application links,
+// merge cleaned text, and return { text, pages }.
 
 const MAX_DEFAULT = 8;
 
@@ -33,9 +33,9 @@ function extractLinks(html, base) {
 function looksProducty(pathname) {
   const p = pathname.toLowerCase();
   return [
-    "/product", "/products", "/collections", "/category", "/categories",
-    "/brand", "/application", "/applications", "/solutions", "/pet", "/feed",
-    "/nutrition", "/flavour", "/flavor"
+    "/product", "/products", "/collections", "/collection",
+    "/category", "/categories", "/application", "/applications",
+    "/solutions", "/pet", "/feed", "/nutrition", "/flavour", "/flavor"
   ].some(k => p.includes(k));
 }
 
@@ -60,19 +60,17 @@ export default async function handler(req, res) {
       if (visited.has(url)) continue;
       visited.add(url);
 
-      // Same-origin only
       const u = new URL(url);
       if (u.origin !== origin) continue;
 
       const r = await fetch(url, {
         headers: {
-          "user-agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
           "accept": "text/html,application/xhtml+xml",
         },
       });
-
       if (!r.ok) continue;
+
       const html = await r.text();
       const text = cleanText(html);
       if (text) {
@@ -80,7 +78,6 @@ export default async function handler(req, res) {
         pages.push(url);
       }
 
-      // discover more links
       const links = extractLinks(html, url);
       for (const L of links) {
         try {
@@ -92,7 +89,7 @@ export default async function handler(req, res) {
       }
     }
 
-    merged = merged.slice(0, 800000); // cap payload
+    merged = merged.slice(0, 800000);
     return res.status(200).json({ text: merged, pages });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Server error" });
